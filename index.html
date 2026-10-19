@@ -1,0 +1,83 @@
+<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>سوق الأردن</title>
+<style>
+:root{--a:#c8102e;--b:#e5e5e5;--g:#f6f6f6}*{box-sizing:border-box}body{margin:0;font-family:Tahoma,Arial,sans-serif;color:#111}a{color:inherit;text-decoration:none}
+header{position:sticky;top:0;background:#fff;border-bottom:1px solid var(--b);display:flex;gap:12px;align-items:center;padding:10px 16px;z-index:5;flex-wrap:wrap}
+.logo{font-weight:700;font-size:22px;color:var(--a)}header input{flex:1;min-width:140px}nav{display:flex;gap:12px;font-size:14px}
+main{max-width:1200px;margin:auto;padding:16px}input,select,textarea,button{font:inherit;padding:8px 10px;border:1px solid #ccc;border-radius:6px;background:#fff}
+button{cursor:pointer;background:#111;color:#fff;border:0}button.s{background:#fff;color:#111;border:1px solid #ccc}button.r{background:var(--a)}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:14px}.card{position:relative;border:1px solid var(--b);border-radius:8px;overflow:hidden;padding-bottom:8px}
+.card .im{aspect-ratio:3/4;background:var(--g) center/cover}.card div.t{padding:6px 10px;font-size:14px}.card b{padding:0 10px}.card small{display:block;padding:0 10px;color:#777}
+.heart{position:absolute;top:8px;left:8px;background:#fff;color:var(--a);border-radius:50%;width:34px;height:34px;padding:0;font-size:18px}
+.bar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}.box{border:1px solid var(--b);border-radius:8px;padding:14px;margin-bottom:12px}.row{display:flex;gap:14px;flex-wrap:wrap;align-items:center}
+.det{display:grid;grid-template-columns:minmax(260px,1fr) 1fr;gap:24px}@media(max-width:700px){.det{grid-template-columns:1fr}}
+.det .im{aspect-ratio:3/4;background:var(--g) center/cover;border-radius:8px}.chip{padding:3px 10px;border-radius:12px;background:var(--g);font-size:13px}
+form.f{display:grid;gap:8px;max-width:420px}table{width:100%;border-collapse:collapse;font-size:14px}td,th{padding:6px;border-bottom:1px solid var(--b);text-align:right}
+#toast{position:fixed;bottom:20px;right:50%;transform:translateX(50%);background:#111;color:#fff;padding:10px 18px;border-radius:8px;display:none;z-index:9}.pg button{margin:2px}
+</style></head><body>
+<header><a class="logo" href="#/">سوق الأردن</a><input id="q" placeholder="ابحث: بلوزة حمراء، حذاء رياضي..." onkeydown="if(event.key=='Enter')location.hash='#/?q='+encodeURIComponent(this.value)">
+<nav><a href="#/fav">♡ المفضلة</a><a href="#/cart">🛒 السلة</a><a href="#/orders">طلباتي</a><span id="nv"></span></nav></header>
+<main id="app"></main><div id="toast"></div>
+<script>
+const $=s=>document.querySelector(s),esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+let tok=localStorage.t,U=JSON.parse(localStorage.u||'null'),favs=new Set();
+const CATS=['ملابس نسائية','ملابس رجالية','ملابس أطفال','أحذية','حقائب وإكسسوارات','إلكترونيات','المنزل والمطبخ','جمال وعناية','رياضة','أخرى'],
+COLORS=['أحمر','أزرق','أخضر','أسود','أبيض','أصفر','وردي','رمادي','بني','بيج'],CITIES=['عمّان','إربد','الزرقاء','العقبة','السلط','مادبا','جرش','عجلون','الكرك','معان','الطفيلة','المفرق'],
+ST=['جديد','قيد التجهيز','تم الشحن','تم التسليم','ملغي'],opts=(a,s)=>a.map(x=>`<option ${x==s?'selected':''}>${x}</option>`).join('');
+function toast(m){const t=$('#toast');t.textContent=m;t.style.display='block';setTimeout(()=>t.style.display='none',2500)}
+async function api(p,m='GET',b){const r=await fetch('/api'+p,{method:m,headers:{'Content-Type':'application/json',...(tok?{Authorization:'Bearer '+tok}:{})},body:b?JSON.stringify(b):undefined});const j=await r.json().catch(()=>({}));if(!r.ok){toast(j.error||'خطأ');if(r.status==401&&tok)logout(1);throw j}return j}
+const go=h=>location.hash=h,v=id=>document.getElementById(id).value;
+function nav(){$('#nv').innerHTML=U?`<a href="#/${U.role=='admin'?'admin':U.role=='vendor'?'vendor':'orders'}">${U.role=='admin'?'الإدارة':U.role=='vendor'?'متجري':esc(U.name)}</a> · <a href="#" onclick="logout()">خروج</a>`:'<a href="#/login">دخول / تسجيل</a>'}
+function logout(s){tok=null;U=null;favs.clear();localStorage.clear();nav();if(!s)go('#/')}
+async function loadFavs(){if(tok&&U&&U.role=='customer')favs=new Set((await api('/favorites')).map(x=>x.id))}
+const card=p=>`<div class="card"><a href="#/p/${p.id}"><div class="im" style="background-image:url('${esc(p.image)}')"></div><div class="t">${esc(p.name)}</div></a><button class="heart" onclick="fav(${p.id},this)">${favs.has(p.id)?'♥':'♡'}</button><b>${p.price} د.أ</b><small>${esc(p.store)}${p.rating?' · ★'+p.rating:''}</small></div>`;
+async function fav(id,b){if(!tok)return go('#/login');const r=await api('/favorites/'+id,'POST');r.fav?favs.add(id):favs.delete(id);b.textContent=r.fav?'♥':'♡'}
+async function route(){const[h,qs]=location.hash.slice(2).split('?'),[pg,id]=h.split('/');try{await({'':home,p:prod,cart,orders,fav:favp,login,vendor,admin}[pg]||home)(id,new URLSearchParams(qs||''))}catch(e){console.log(e)}}
+async function home(_,P){$('#q').value=P.get('q')||'';const r=await api('/products?'+P);
+const f=(k,l,a)=>`<select onchange="flt('${k}',this.value)"><option value="">${l}</option>${opts(a,P.get(k))}</select>`;
+$('#app').innerHTML=`<div class="bar">${f('category','كل الفئات',CATS)}${f('color','كل الألوان',COLORS)}${f('size','المقاس',['XS','S','M','L','XL','XXL','36','38','40','42','44'])}
+<input type="number" placeholder="أقل سعر" style="width:100px" value="${P.get('min')||''}" onchange="flt('min',this.value)"><input type="number" placeholder="أعلى سعر" style="width:100px" value="${P.get('max')||''}" onchange="flt('max',this.value)">
+<select onchange="flt('sort',this.value)"><option value="">الأحدث</option><option value="price_asc" ${P.get('sort')=='price_asc'?'selected':''}>الأرخص</option><option value="price_desc" ${P.get('sort')=='price_desc'?'selected':''}>الأغلى</option><option value="rating" ${P.get('sort')=='rating'?'selected':''}>الأعلى تقييماً</option></select></div>
+<p>${r.total} منتج</p><div class="grid">${r.items.map(card).join('')||'<p>لا توجد نتائج</p>'}</div>
+<div class="pg">${Array.from({length:r.pages},(_,i)=>`<button class="s" onclick="flt('page',${i+1})">${i+1}</button>`).join('')}</div>`}
+function flt(k,val){const P=new URLSearchParams(location.hash.split('?')[1]||'');val?P.set(k,val):P.delete(k);if(k!='page')P.delete('page');go('#/?'+P)}
+async function prod(id){const p=await api('/products/'+id),cs=[...new Set(p.variants.map(x=>x.color).filter(Boolean))],ss=[...new Set(p.variants.map(x=>x.size).filter(Boolean))];window.PV=p.variants;
+$('#app').innerHTML=`<div class="det"><div class="im" style="background-image:url('${esc(p.image)}')"></div><div><h2>${esc(p.name)}</h2><p><a href="#/?store=${p.store_id}">🏬 ${esc(p.store)}</a> · ${esc(p.store_city||'')} ${p.rating?'· ★'+p.rating:''}</p><h3>${p.price} د.أ</h3><p>${esc(p.description)}</p>
+<div class="row">${cs.length?`<select id="vc">${opts(cs)}</select>`:''}${ss.length?`<select id="vs">${opts(ss)}</select>`:''}</div><br><button class="r" onclick="addCart()">أضف للسلة</button> <button class="s" onclick="fav(${p.id},this)">${favs.has(p.id)?'♥':'♡'} مفضلة</button><p class="chip">الدفع عند الاستلام</p></div></div>
+<h3>التقييمات</h3>${p.reviews.map(r=>`<div class="box"><b>${esc(r.name)}</b> ${'★'.repeat(r.rating)}<br>${esc(r.comment)}</div>`).join('')||'<p>لا تقييمات بعد</p>'}
+${tok?`<div class="box"><select id="rr">${[5,4,3,2,1].map(x=>`<option value="${x}">${'★'.repeat(x)}</option>`).join('')}</select> <input id="rc" placeholder="رأيك بالمنتج" style="width:60%"> <button onclick="rate(${p.id})">أرسل</button></div>`:''}`}
+async function addCart(){if(!tok)return go('#/login');const c=$('#vc')?.value,s=$('#vs')?.value,x=PV.find(x=>(!c||x.color==c)&&(!s||x.size==s)&&x.stock>0);if(!x)return toast('هذا الخيار غير متوفر');await api('/cart','POST',{variant_id:x.id});toast('تمت الإضافة للسلة')}
+async function rate(id){await api('/products/'+id+'/reviews','POST',{rating:+v('rr'),comment:v('rc')});toast('شكراً لتقييمك');prod(id)}
+async function favp(){if(!tok)return go('#/login');$('#app').innerHTML='<h2>المفضلة</h2><div class="grid">'+(await api('/favorites')).map(card).join('')+'</div>'}
+let disc=0,cpn='';
+async function cart(){if(!tok)return go('#/login');const c=await api('/cart'),sub=c.reduce((t,i)=>t+i.qty*i.price,0);
+$('#app').innerHTML=`<h2>السلة</h2>${c.map(i=>`<div class="box row"><div class="chip">${esc(i.name)}</div>${esc(i.color||'')} ${esc(i.size||'')} × ${i.qty} <b>${(i.qty*i.price).toFixed(2)} د.أ</b><button class="s" onclick="api('/cart/${i.id}','DELETE').then(cart)">حذف</button></div>`).join('')||'<p>السلة فارغة</p>'}
+${c.length?`<div class="box"><div class="row"><input id="cp" placeholder="كوبون خصم" value="${cpn}"><button class="s" onclick="chk()">تطبيق</button></div>
+<p>المجموع: ${sub.toFixed(2)} | الخصم: ${disc} | التوصيل: 2 | <b>الإجمالي: ${(sub-disc+2).toFixed(2)} د.أ</b></p>
+<form class="f" onsubmit="event.preventDefault();order()"><input id="on" placeholder="الاسم" value="${esc(U.name)}" required><input id="op" placeholder="الهاتف" value="${esc(U.phone||'')}" required><select id="oc">${opts(CITIES)}</select><textarea id="oa" placeholder="العنوان بالتفصيل" required></textarea><button class="r">تأكيد الطلب (الدفع عند الاستلام)</button></form></div>`:''}`}
+async function chk(){cpn=v('cp');try{disc=(await api('/coupon','POST',{code:cpn})).discount;toast('تم تطبيق الكوبون')}catch{disc=0;cpn=''}cart()}
+async function order(){const r=await api('/orders','POST',{name:v('on'),phone:v('op'),city:v('oc'),address:v('oa'),coupon:cpn});disc=0;cpn='';toast('تم الطلب رقم '+r.id);go('#/orders')}
+async function orders(){if(!tok)return go('#/login');if(U.role!='customer')return go('#/'+U.role);const o=await api('/orders');
+$('#app').innerHTML='<h2>طلباتي</h2>'+(o.map(x=>`<div class="box"><b>طلب #${x.id}</b> · ${x.created_at} · ${x.total} د.أ${x.coupon?' (كوبون '+esc(x.coupon)+')':''}${x.items.map(i=>`<div class="row">${esc(i.name)} ${esc(i.color||'')} ${esc(i.size||'')} ×${i.qty} <span class="chip">${i.status}</span></div>`).join('')}</div>`).join('')||'<p>لا طلبات بعد</p>')}
+async function login(){const rg=location.hash.includes('reg');$('#app').innerHTML=`<div class="row" style="align-items:flex-start"><form class="f" onsubmit="event.preventDefault();doLogin()"><h3>تسجيل الدخول</h3><input id="le" type="email" placeholder="البريد" required><input id="lp" type="password" placeholder="كلمة السر" required><button>دخول</button></form>
+<form class="f" onsubmit="event.preventDefault();doReg()"><h3>حساب جديد</h3><select id="rl" onchange="$('#sf').style.display=this.value=='vendor'?'grid':'none'"><option value="customer">زبون</option><option value="vendor">صاحب متجر</option></select><input id="rn" placeholder="الاسم" required><input id="re" type="email" placeholder="البريد" required><input id="rph" placeholder="الهاتف"><input id="rp" type="password" placeholder="كلمة السر (6+)" required>
+<div id="sf" style="display:none;gap:8px"><input id="sn" placeholder="اسم المتجر"><select id="sc">${opts(CITIES)}</select><input id="sd" placeholder="وصف المتجر"></div><button class="r">تسجيل</button></form></div>`}
+async function doLogin(){const r=await api('/login','POST',{email:v('le'),password:v('lp')});tok=r.token;U=r.user;localStorage.t=tok;localStorage.u=JSON.stringify(U);nav();await loadFavs();go(U.role=='admin'?'#/admin':U.role=='vendor'?'#/vendor':'#/')}
+async function doReg(){const r=await api('/register','POST',{role:v('rl'),name:v('rn'),email:v('re'),phone:v('rph'),password:v('rp'),store_name:v('sn'),city:v('sc'),description:v('sd')});toast(r.pending?'تم التسجيل، متجرك بانتظار موافقة المدير':'تم التسجيل، سجّل دخولك')}
+let img='';
+async function vendor(){if(!tok||U.role!='vendor')return go('#/login');let P,O;try{P=await api('/vendor/products');O=await api('/vendor/orders')}catch{return $('#app').innerHTML='<div class="box">متجرك بانتظار موافقة المدير. سنفعّله قريباً.</div>'}
+$('#app').innerHTML=`<h2>لوحة المتجر</h2><div class="box"><h3>إضافة منتج</h3><form class="f" onsubmit="event.preventDefault();addP()"><input id="pn" placeholder="اسم المنتج" required><select id="pc">${opts(CATS)}</select><input id="pp" type="number" step="0.01" placeholder="السعر (د.أ)" required><textarea id="pd" placeholder="الوصف"></textarea>
+<input type="file" accept="image/*" onchange="up(this)"><input id="ps" placeholder="المقاسات مفصولة بفاصلة: S,M,L (اتركه فارغاً لغير الملابس)"><div class="row">${COLORS.map(c=>`<label><input type="checkbox" class="cc" value="${c}">${c}</label>`).join('')}</div><input id="pst" type="number" placeholder="الكمية لكل خيار" value="10"><button class="r">نشر المنتج</button></form></div>
+<h3>منتجاتي</h3><table><tr><th>المنتج<th>السعر<th>المخزون<th></tr>${P.map(p=>`<tr><td>${esc(p.name)}<td><input type="number" value="${p.price}" style="width:80px" onchange="api('/vendor/products/${p.id}','PUT',{price:this.value}).then(()=>toast('تم'))"><td>${p.variants.map(x=>`${esc(x.color||'')} ${esc(x.size||'')}: <input type="number" value="${x.stock}" style="width:55px" onchange="api('/vendor/variants/${x.id}','PUT',{stock:this.value})"><br>`).join('')}<td><button class="s" onclick="confirm('حذف المنتج؟')&&api('/vendor/products/${p.id}','DELETE').then(vendor)">حذف</button></tr>`).join('')}</table>
+<h3>الطلبات الواردة</h3><table>${O.map(i=>`<tr><td>#${i.order_id} ${esc(i.name)} ${esc(i.color||'')} ${esc(i.size||'')} ×${i.qty}<td>${esc(i.cust)} ${esc(i.phone)} - ${esc(i.city)}، ${esc(i.address)}<td><select onchange="api('/vendor/items/${i.id}','PUT',{status:this.value})">${opts(ST,i.status)}</select></tr>`).join('')}</table>`}
+function up(el){const f=el.files[0],r=new FileReader();r.onload=async()=>{img=(await api('/upload','POST',{data:r.result})).url;toast('تم رفع الصورة')};r.readAsDataURL(f)}
+async function addP(){const ss=v('ps').split(',').map(x=>x.trim()).filter(Boolean),cs=[...document.querySelectorAll('.cc:checked')].map(x=>x.value),vs=[];
+for(const c of cs.length?cs:[null])for(const s of ss.length?ss:[null])vs.push({color:c,size:s,stock:+v('pst')});
+await api('/vendor/products','POST',{name:v('pn'),category:v('pc'),price:+v('pp'),description:v('pd'),image:img,variants:vs});img='';toast('تم نشر المنتج');vendor()}
+async function admin(){if(!tok||U.role!='admin')return go('#/login');const[s,st,cp]=await Promise.all([api('/admin/stats'),api('/admin/stores'),api('/admin/coupons')]);
+$('#app').innerHTML=`<h2>لوحة الإدارة</h2><div class="row"><span class="chip">زبائن ${s.users}</span><span class="chip">متاجر ${s.stores}</span><span class="chip">منتجات ${s.products}</span><span class="chip">طلبات ${s.orders}</span><span class="chip">مبيعات ${s.sales} د.أ</span></div>
+<h3>المتاجر</h3><table>${st.map(x=>`<tr><td>${esc(x.name)}<td>${esc(x.email)} ${esc(x.phone||'')}<td>${x.status}<td><button onclick="ss(${x.id},'approved')">موافقة</button> <button class="s" onclick="ss(${x.id},'rejected')">رفض</button></tr>`).join('')}</table>
+<h3>الكوبونات</h3><div class="row"><input id="kc" placeholder="الكود"><input id="kp" type="number" placeholder="نسبة %" style="width:90px"><input id="km" type="number" placeholder="حد أدنى" style="width:90px"><button onclick="api('/admin/coupons','POST',{code:v('kc'),percent:+v('kp'),min_order:+v('km')}).then(admin)">إضافة</button></div>
+<table>${cp.map(c=>`<tr><td>${esc(c.code)}<td>${c.percent}%<td>من ${c.min_order}<td><button class="s" onclick="api('/admin/coupons/${c.id}','DELETE').then(admin)">حذف</button></tr>`).join('')}</table>`}
+const ss=(id,s)=>api('/admin/stores/'+id,'PUT',{status:s}).then(admin);
+window.onhashchange=route;nav();loadFavs().finally(route);
+</script></body></html>
